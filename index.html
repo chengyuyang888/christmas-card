@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Merry Christmas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #000000; /* 跟 Python BG_COLOR 一样纯黑 */
+      color: #ffffff;
+      font-family: Arial, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .card {
+      position: relative;
+      width: min(90vw, 450px); /* 对应 CANVAS_SIZE = 450 的正方形区域 */
+      aspect-ratio: 1 / 1;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: #000000; /* 纯黑背景 */
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+      padding: 24px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .tree-wrapper {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    pre#tree {
+      white-space: pre;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: clamp(12px, 2.3vw, 18px);
+      line-height: 1.15;
+      text-align: center;
+      user-select: none;
+    }
+    .message {
+      text-align: center;
+      margin-top: 8px;
+      user-select: none;
+      color: #ffffff; /* TEXT_COLOR */
+    }
+    .message-line {
+      font-size: clamp(13px, 2.4vw, 18px);
+      font-weight: bold;
+    }
+    .message-line + .message-line {
+      margin-top: 4px;
+    }
+    .signature {
+      margin-top: 4px;
+      font-size: clamp(11px, 2vw, 15px);
+      opacity: 0.9;
+    }
+
+    /* 雪花样式，与 Python 一致：白色 * 号 */
+    .snowflake {
+      position: fixed;
+      top: -10px;
+      color: #ffffff;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 10px;
+      opacity: 0.85;
+      pointer-events: none;
+      animation-name: fall;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateY(0);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(110vh);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="tree-wrapper">
+      <pre id="tree"></pre>
+    </div>
+
+    <div class="message">
+      <div class="message-line">Merry Christmas!</div>
+      <div class="message-line">Wishing you and your family health, happiness, peace and prosperity!</div>
+      <div class="signature">——Chengyu Yang</div>
+    </div>
+  </div>
+
+  <script>
+    // ======== 颜色配置（与 Python 代码完全一致） ========
+    const LEAF_COLOR = "#2ecc71";  // 叶子
+    const TRUNK_COLOR = "#8e5b3a"; // 树干
+    const STAR_COLOR = "#f1c40f";  // 星星
+    const TEXT_COLOR = "#ffffff";
+    const BG_COLOR = "#000000";
+
+    const LIGHT_COLORS = [
+      "#e74c3c",  // 红
+      "#f1c40f",  // 黄
+      "#3498db",  // 蓝
+      "#9b59b6",  // 紫
+      "#1abc9c",  // 青
+      "#ff79c6",  // 粉
+    ];
+
+    // --- ASCII 树模板（一个倒三角 + 树干），与 Python TREE_TEMPLATE 相同 ---
+    const TREE_TEMPLATE = [
+      "         ★         ",
+      "        ^^^        ",
+      "       ^^^^^       ",
+      "      ^^^^^^^      ",
+      "     ^^^^^^^^^     ",
+      "    ^^^^^^^^^^^    ",
+      "   ^^^^^^^^^^^^^   ",
+      "  ^^^^^^^^^^^^^^^  ",
+      " ^^^^^^^^^^^^^^^^^ ",
+      "^^^^^^^^^^^^^^^^^^^",
+      "        |||        ",
+      "        |||        ",
+    ];
+
+    const treeElement = document.getElementById("tree");
+
+    // 每一帧中，叶子里有多少比例变成“灯”，与 Python LIGHT_RATIO 一致
+    const LIGHT_RATIO = 0.18;
+    const FRAME_INTERVAL = 120; // 帧间隔（毫秒），与 Python FRAME_DELAY 一致
+
+    function buildTreeFrame() {
+      const rows = TREE_TEMPLATE;
+      const height = rows.length;
+      const width = rows[0].length;
+
+      // 收集叶子位置
+      const leafPositions = [];
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (rows[y][x] === "^") {
+            leafPositions.push({ x, y });
+          }
+        }
+      }
+
+      // 随机选择一部分叶子作为灯
+      const lightCount = Math.max(1, Math.floor(leafPositions.length * LIGHT_RATIO));
+      const chosenIndexSet = new Set();
+      while (chosenIndexSet.size < lightCount) {
+        const idx = Math.floor(Math.random() * leafPositions.length);
+        chosenIndexSet.add(idx);
+      }
+
+      // 为每个灯分配颜色：key = "x,y" -> color
+      const lightColorMap = {};
+      let i = 0;
+      for (const pos of leafPositions) {
+        if (chosenIndexSet.has(i)) {
+          const key = pos.x + "," + pos.y;
+          const color = LIGHT_COLORS[Math.floor(Math.random() * LIGHT_COLORS.length)];
+          lightColorMap[key] = color;
+        }
+        i++;
+      }
+
+      // 构造 HTML，每个字符用 span 上色，保证颜色与 Python 对应
+      const htmlLines = [];
+      for (let y = 0; y < height; y++) {
+        let rowHtml = "";
+        for (let x = 0; x < width; x++) {
+          const rawCh = rows[y][x];
+
+          if (rawCh === " ") {
+            rowHtml += " ";
+            continue;
+          }
+
+          let ch = rawCh;
+          let color = TEXT_COLOR;
+
+          if (rawCh === "^") {
+            const key = x + "," + y;
+            if (lightColorMap[key]) {
+              ch = "o"; // 灯
+              color = lightColorMap[key];
+            } else {
+              ch = "^"; // 普通叶子
+              color = LEAF_COLOR;
+            }
+          } else if (rawCh === "★") {
+            ch = "★";
+            color = STAR_COLOR;
+          } else if (rawCh === "|") {
+            color = TRUNK_COLOR;
+          } else {
+            color = LEAF_COLOR;
+          }
+
+          rowHtml += `<span style="color: ${color};">${ch}</span>`;
+        }
+        htmlLines.push(rowHtml);
+      }
+
+      treeElement.innerHTML = htmlLines.join("\n");
+    }
+
+    // ----- 雪花效果（与 Python 一致：白色 * 号往下飘） -----
+    const SNOW_COUNT = 80;
+
+    function createSnowflakes() {
+      for (let i = 0; i < SNOW_COUNT; i++) {
+        const flake = document.createElement("span");
+        flake.className = "snowflake";
+        flake.textContent = Math.random() < 0.5 ? "*" : ".";
+        const size = 8 + Math.random() * 6;
+        flake.style.fontSize = size + "px";
+        flake.style.left = Math.random() * 100 + "vw";
+        flake.style.animationDuration = 6 + Math.random() * 8 + "s";
+        flake.style.animationDelay = Math.random() * 8 + "s";
+        document.body.appendChild(flake);
+      }
+    }
+
+    // 初始化：树 + 雪花 + 动画循环
+    buildTreeFrame();
+    createSnowflakes();
+    setInterval(buildTreeFrame, FRAME_INTERVAL);
+  </script>
+</body>
+</html>
